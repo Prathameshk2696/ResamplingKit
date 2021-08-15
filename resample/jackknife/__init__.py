@@ -1,4 +1,3 @@
-
 from ._base import Jackknife
 
 __all__ = [
