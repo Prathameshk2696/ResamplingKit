@@ -1,15 +1,17 @@
 """
 Jackknife resampling.
-
-Author: Prathamesh Kulkarni <prathamesh.kulkarni@rutgers.edu>
 """
+
+# Author: Prathamesh Kulkarni <prathamesh.kulkarni@rutgers.edu>
 
 from itertools import combinations
 
 import numpy as np
+from tabulate import tabulate
+
+from ..utils import check_if_fitted, validate_jackknife_input
 
 # TODO: add confidence interval and delete-d jackknife functionality.
-# TODO: add input validation and check on whether jackknife is fitted.
 
 class Jackknife:
     """
@@ -23,7 +25,7 @@ class Jackknife:
     sample : array-like, default = None
         one-dimensional array of observations.
 
-    estimate : function
+    estimate_func : function
         function that takes a sample as input and returns point estimate.
 
     Attributes
@@ -42,10 +44,10 @@ class Jackknife:
     >>> import numpy as np
     >>> from resample.jackknife import Jackknife
     >>> sample = np.array([10,27,31,40,46,50,52,104,146])
-    >>> def estimate(sample):
+    >>> def estimate_func(sample):
     ...     return sample.mean()
     ...
-    >>> jack = Jackknife(sample = sample, estimate = estimate)
+    >>> jack = Jackknife(sample = sample, estimate_func = estimate_func)
     >>> jack.fit()
     >>> jack.bias()
     0.0
@@ -57,10 +59,11 @@ class Jackknife:
 
     """
 
-    def __init__(self, *, sample = None, estimate = None):
+    def __init__(self, *, sample = None, estimate_func = None):
         self.sample = np.asarray(sample)
         self.n = self.sample.shape[0]
-        self.estimate = estimate
+        self.estimate_func = estimate_func
+        validate_jackknife_input(sample = self.sample, estimate_func = self.estimate_func)
 
     def resamples(self):
         """
@@ -86,7 +89,7 @@ class Jackknife:
         """
         self.replications = np.zeros(self.n, dtype = float)
         for index,sample in enumerate(self.resamples()):
-            self.replications[index] = self.estimate(sample)
+            self.replications[index] = self.estimate_func(sample)
 
     def fit(self):
         """
@@ -96,7 +99,7 @@ class Jackknife:
         -------
         None
         """
-        self.original_estimate = self.estimate(self.sample)
+        self.original_estimate = self.estimate_func(self.sample)
         self.replicate()
 
     def bias(self):
@@ -108,6 +111,7 @@ class Jackknife:
         result : float
             bias of a point estimator.
         """
+        check_if_fitted(self)
         result = (self.n - 1) * (self.replications.mean() - self.original_estimate)
         return result
 
@@ -120,6 +124,7 @@ class Jackknife:
         result : float
             variance of a point estimator.
         """
+        check_if_fitted(self)
         result = ((self.n - 1) / self.n) * np.sum((self.replications - self.replications.mean())**2)
         return result
 
@@ -132,8 +137,18 @@ class Jackknife:
         result : float
             standard error of a point estimator.
         """
+        check_if_fitted(self)
         result = (((self.n - 1) / self.n) * np.sum((self.replications - self.replications.mean()) ** 2))**0.5
         return result
 
     def ci(self):
+        check_if_fitted(self)
         pass
+
+    def __str__(self):
+        accuracy_measures = ['Bias', 'Variance', 'Standard Error', 'Confidence Interval']
+        values = [self.bias(), self.var(), self.std(), self.ci()]
+        return tabulate(zip(accuracy_measures,values), tablefmt = 'grid')
+
+    def __repr__(self):
+        return 'Jackknife()'
