@@ -16,29 +16,22 @@ from ..utils import check_if_fitted, validate_jackknife_input
 class Jackknife:
     """
     Leave-one-out jackknife resampling.
-
     Jackknife generates jackknife samples, computes jackknife replications and
     estimates bias, variance, standard error and confidence interval of a point estimator.
-
     Parameters
     ----------
     sample : array-like, default = None
         one-dimensional array of observations.
-
     estimate_func : function
         function that takes a sample as input and returns point estimate.
-
     Attributes
     ----------
     n : int
         number of observations in the given sample.
-
     original_estimate : float
         point estimate using given sample (all observations).
-
     replications : numpy.ndarray
         array of jackknife replications.
-
     Examples
     --------
     >>> import numpy as np
@@ -56,7 +49,6 @@ class Jackknife:
     >>> jack.std()
     14.138970748507845
     >>> jack.ci()
-
     """
 
     def __init__(self, *, sample = None, estimate_func = None):
@@ -68,7 +60,6 @@ class Jackknife:
     def resamples(self):
         """
         Generate jackknife samples.
-
         Yields
         ------
         js : numpy.ndarray
@@ -82,7 +73,6 @@ class Jackknife:
     def replicate(self):
         """
         Compute jackknife replications.
-
         Returns
         -------
         None
@@ -94,7 +84,6 @@ class Jackknife:
     def fit(self):
         """
         Compute point estimate using the given sample (all observations) and compute jackknife replications.
-
         Returns
         -------
         None
@@ -105,7 +94,6 @@ class Jackknife:
     def bias(self):
         """
         Estimate bias of a point estimator.
-
         Returns
         -------
         result : float
@@ -118,7 +106,6 @@ class Jackknife:
     def var(self):
         """
         Estimate variance of a point estimator.
-
         Returns
         -------
         result : float
@@ -131,7 +118,6 @@ class Jackknife:
     def std(self, d = 1):
         """
         Estimate standard error of a point estimator.
-
         Returns
         -------
         result : float
