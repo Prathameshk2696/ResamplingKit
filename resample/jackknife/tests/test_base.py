@@ -13,7 +13,7 @@ atol = 1e-10
 
 def test_jackknife_bias():
     sample = np.array([10, 27, 31, 40, 46, 50, 52, 104, 146])
-    jack = Jackknife(sample=sample, estimate=np.mean)
+    jack = Jackknife(sample = sample, estimate_func = np.mean)
     jack.fit()
     actual_bias = jack.bias()
     desired_bias = 0.0
@@ -21,7 +21,7 @@ def test_jackknife_bias():
 
 def test_jackknife_var():
     sample = np.array([10, 27, 31, 40, 46, 50, 52, 104, 146])
-    jack = Jackknife(sample=sample, estimate=np.mean)
+    jack = Jackknife(sample = sample, estimate_func = np.mean)
     jack.fit()
     actual_variance = jack.var()
     desired_variance = 199.91049382716048
@@ -29,12 +29,8 @@ def test_jackknife_var():
 
 def test_jackknife_std():
     sample = np.array([10, 27, 31, 40, 46, 50, 52, 104, 146])
-    jack = Jackknife(sample=sample, estimate=np.mean)
+    jack = Jackknife(sample = sample, estimate_func = np.mean)
     jack.fit()
     actual_std = jack.std()
     desired_std = 14.138970748507845
     assert_allclose(actual = actual_std, desired = desired_std, atol = atol)
-
-
-
-
