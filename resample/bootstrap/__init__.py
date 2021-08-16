@@ -1,5 +1,6 @@
-from ._base import NonparametricBootstrap
+from ._base import NonparametricBootstrap, ParametricBootstrap
 
 __all__ = [
     'NonparametricBootstrap',
+    'ParametricBootstrap',
 ]
