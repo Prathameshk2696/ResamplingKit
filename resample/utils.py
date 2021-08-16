@@ -60,7 +60,10 @@ def validate_bootstrap_input(boot):
         raise TypeError('plugin_estimate_func must be either None or callable.')
 
     if not isinstance(boot.B, int):
-        raise TypeError('B must be of type int')
+        raise TypeError('B must be of type int.')
+
+    if not isinstance(boot.seed, int):
+        raise TypeError('seed must be of type int.')
 
 def validate_nonparametric_bootstrap_input(npboot):
     """
