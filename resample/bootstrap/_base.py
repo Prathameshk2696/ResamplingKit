@@ -26,12 +26,13 @@ from ..utils import (
 class Bootstrap(Resampler, metaclass = ABCMeta):
     """ Base class for all bootstrap resamplers."""
 
-    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B = 100):
+    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B = 100, seed = None):
         self.samples = tuple([np.asarray(sample) for sample in samples])  # one or more one-dimensional arrays
         print(self.samples)
         self.estimate_func = estimate_func
         self.plugin_estimate_func = plugin_estimate_func
         self.B = B
+        self.seed = seed
 
     def replicate(self):
         """
@@ -154,9 +155,9 @@ class NonparametricBootstrap(Bootstrap):
 
     """
 
-    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B = 100):
-        Bootstrap.__init__(self, samples = samples, estimate_func = estimate_func,
-                         plugin_estimate_func = plugin_estimate_func, B = B)
+    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B = 100, seed = None):
+        Bootstrap.__init__(self, *samples, estimate_func = estimate_func,
+                         plugin_estimate_func = plugin_estimate_func, B = B, seed = seed)
         validate_nonparametric_bootstrap_input(self)
 
 
@@ -170,6 +171,7 @@ class NonparametricBootstrap(Bootstrap):
             nonparametric bootstrap sample
         """
 
+        np.random.seed(self.seed)
         for b in range(self.B):
             npbs = []
             for i in range(len(self.samples)):
@@ -231,9 +233,9 @@ class ParametricBootstrap(Bootstrap):
     >>> pboot.ci()
     """
 
-    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B = 100, dists = None):
+    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B = 100, dists = None, seed = None):
         Bootstrap.__init__(self, *samples, estimate_func = estimate_func,
-                         plugin_estimate_func = plugin_estimate_func, B = B)
+                         plugin_estimate_func = plugin_estimate_func, B = B, seed = seed)
         self.dists = dists # tuple of distribution names
         validate_parametric_bootstrap_input(self)
 
@@ -246,6 +248,7 @@ class ParametricBootstrap(Bootstrap):
         None
         """
 
+        np.random.seed(self.seed)
         self.dist_objects = [getattr(stats, dist) for dist in self.dists]
         self.dist_parameters_estimates = []
         for sample, dist_object in zip(self.samples, self.dist_objects):
