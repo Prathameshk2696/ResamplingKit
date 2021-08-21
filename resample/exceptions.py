@@ -10,3 +10,6 @@ class SampleShapeError(ValueError):
 
 class LengthMismatchError(ValueError):
     pass
+
+class NotComputableError(ValueError, AttributeError):
+    pass
