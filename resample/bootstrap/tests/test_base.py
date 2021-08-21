@@ -17,7 +17,7 @@ def test_nonparametric_bootstrap_bias():
     sample2 = np.array([52, 104, 146, 10, 51, 30, 40, 27, 46], dtype = float)
     def estimate_func(sample1, sample2):
         return sample1.mean() - sample2.mean()
-    npboot = NonparametricBootstrap(sample1, sample2, estimate_func = estimate_func, B = 500, seed = random_seed)
+    npboot = NonparametricBootstrap(sample1, sample2, estimate_func = estimate_func, B0 = 500, seed = random_seed)
     npboot.fit()
     actual_bias = npboot.bias()
     desired_bias = -1.0437142857142945
@@ -28,7 +28,7 @@ def test_nonparametric_bootstrap_var():
     sample2 = np.array([52, 104, 146, 10, 51, 30, 40, 27, 46], dtype=float)
     def estimate_func(sample1, sample2):
         return sample1.mean() - sample2.mean()
-    npboot = NonparametricBootstrap(sample1, sample2, estimate_func=estimate_func, B=500, seed = random_seed)
+    npboot = NonparametricBootstrap(sample1, sample2, estimate_func = estimate_func, B0 = 500, seed = random_seed)
     npboot.fit()
     actual_variance = npboot.var()
     desired_variance = 663.6485178681878
@@ -39,7 +39,7 @@ def test_nonparametric_bootstrap_std():
     sample2 = np.array([52, 104, 146, 10, 51, 30, 40, 27, 46], dtype=float)
     def estimate_func(sample1, sample2):
         return sample1.mean() - sample2.mean()
-    npboot = NonparametricBootstrap(sample1, sample2, estimate_func=estimate_func, B=500, seed = random_seed)
+    npboot = NonparametricBootstrap(sample1, sample2, estimate_func = estimate_func, B0 = 500, seed = random_seed)
     npboot.fit()
     actual_std = npboot.std()
     desired_std = 25.761376474641022
@@ -50,7 +50,7 @@ def test_parametric_bootstrap_bias():
     sample2 = np.array([52, 104, 146, 10, 51, 30, 40, 27, 46], dtype=float)
     def estimate_func(sample1, sample2):
         return sample1.mean() - sample2.mean()
-    pboot = ParametricBootstrap(sample1, sample2, estimate_func=estimate_func, B=200, dists = ('norm', 'norm'), seed = random_seed)
+    pboot = ParametricBootstrap(sample1, sample2, estimate_func=estimate_func, B0 = 200, dists = ('norm', 'norm'), seed = random_seed)
     pboot.fit()
     actual_bias = pboot.bias()
     desired_bias = 0.3561565729846521
@@ -61,7 +61,7 @@ def test_parametric_bootstrap_var():
     sample2 = np.array([52, 104, 146, 10, 51, 30, 40, 27, 46], dtype=float)
     def estimate_func(sample1, sample2):
         return sample1.mean() - sample2.mean()
-    pboot = ParametricBootstrap(sample1, sample2, estimate_func=estimate_func, B=200, dists=('norm', 'norm'), seed = random_seed)
+    pboot = ParametricBootstrap(sample1, sample2, estimate_func=estimate_func, B0 = 200, dists=('norm', 'norm'), seed = random_seed)
     pboot.fit()
     actual_variance = pboot.var()
     desired_variance = 718.0531559250003
@@ -72,7 +72,7 @@ def test_parametric_bootstrap_std():
     sample2 = np.array([52, 104, 146, 10, 51, 30, 40, 27, 46], dtype=float)
     def estimate_func(sample1, sample2):
         return sample1.mean() - sample2.mean()
-    pboot = ParametricBootstrap(sample1, sample2, estimate_func=estimate_func, B = 200, dists=('norm', 'norm'), seed = random_seed)
+    pboot = ParametricBootstrap(sample1, sample2, estimate_func=estimate_func, B0 = 200, dists=('norm', 'norm'), seed = random_seed)
     pboot.fit()
     actual_std = pboot.std()
     desired_std = 26.796513876342203
