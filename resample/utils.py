@@ -4,7 +4,13 @@ This module contains utility functions for the resample module.
 
 # Author: Prathamesh Kulkarni <prathamesh.kulkarni@rutgers.edu>
 
-from .exceptions import NotFittedError, SampleShapeError, LengthMismatchError
+from .exceptions import (
+    NotFittedError,
+    SampleShapeError,
+    LengthMismatchError,
+    NotComputableError,
+)
+
 from scipy import stats
 from scipy.stats import rv_continuous, rv_discrete
 
@@ -50,7 +56,7 @@ def validate_bootstrap_input(boot):
     """
 
     for sample in boot.samples:
-        if len(sample.shape) > 1:
+        if len(sample.shape) != 1:
             raise SampleShapeError('NonparametricBootstrap accepts one-dimensional samples only.')
 
     if not callable(boot.estimate_func):
@@ -59,11 +65,17 @@ def validate_bootstrap_input(boot):
     if (boot.plugin_estimate_func is not None) and (not callable(boot.plugin_estimate_func)):
         raise TypeError('plugin_estimate_func must be either None or callable.')
 
-    if not isinstance(boot.B, int):
-        raise TypeError('B must be of type int.')
+    if not isinstance(boot.B0, int):
+        raise TypeError('B0 must be of type int.')
 
-    if not isinstance(boot.seed, int):
-        raise TypeError('seed must be of type int.')
+    if not isinstance(boot.B1, (type(None), int)):
+        raise TypeError('B1 must be of type either NoneType or int.')
+
+    if not isinstance(boot.cl, (int, float)):
+        raise TypeError('cl must be of type either int or float.')
+
+    if not isinstance(boot.seed, (type(None),int)):
+        raise TypeError('seed must be of type either NoneType or int.')
 
 def validate_nonparametric_bootstrap_input(npboot):
     """
@@ -95,3 +107,26 @@ def validate_parametric_bootstrap_input(pboot):
 
     if len(pboot.samples) != len(pboot.dists):
         raise ValueError('Number of samples and number of distributions must match.')
+
+def validate_bootstrap_ci_method(method):
+    """
+
+    """
+
+    if method not in {'basic', 'percentile', 'studentized', 'BCa', 'ABC'}:
+        raise ValueError(f'{method} is an invalid method. It must be one of the following - '
+                         'basic, percentile, studentized, BCa, ABC.')
+
+def check_if_ci_studentized_is_computable(boot):
+    """
+
+    """
+
+    if boot.B1 is None:
+
+        message = """
+        Studentized confidence interval cannot be computed.
+        B1 must be of type int in order to compute studentized confidence interval.
+        """
+
+        raise NotComputableError(message)
