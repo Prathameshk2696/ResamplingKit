@@ -25,6 +25,7 @@ from ..utils import (
 # TODO: add poisson and bag of little bootstraps.
 # TODO: add variance stabilization to studentized confidence interval.
 # TODO: add multithreading.
+# TODO: add verbosity.
 
 class Bootstrap(Resampler, metaclass = ABCMeta):
     """ Base class for all bootstrap resamplers."""
@@ -54,7 +55,7 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
             self.replications[index] = self.estimate_func(*boot_samples)
 
 
-    def fit(self):
+    def fit(self, set_seed = True):
         """
         Compute point estimate as well as plugin estimate using the given sample (all observations) and compute bootstrap replications.
 
@@ -63,7 +64,8 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
         None
         """
 
-        np.random.seed(seed = self.seed)
+        if set_seed:
+            np.random.seed(seed = self.seed)
         self.original_estimate = self.estimate_func(*self.samples)
         self.plugin_estimate = self.original_estimate if self.plugin_estimate_func is None else self.plugin_estimate_func(*self.samples)
         self.replicate()
@@ -105,6 +107,107 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
 
         check_if_fitted(self)
         result = ((np.sum((self.replications - self.replications.mean()) ** 2)) / (self.B0 - 1))**0.5
+        return result
+
+    def ci(self, method = 'basic'):
+        """
+        Computes the confidence interval of a point estimator.
+
+        Parameters
+        ----------
+        method : str, default = basic
+            'basic' for basic bootstrap / reverse percentile interval
+            'percentile' for percentile interval
+            'studentized' for studentized bootstrap interval
+        """
+
+        validate_bootstrap_ci_method(method)
+
+        if method == 'basic': result = self._ci_basic()
+        elif method == 'percentile': result = self._ci_percentile()
+        elif method == 'studentized': result = self._ci_studentized()
+        elif method == 'BCa': result = self._ci_BCa()
+        elif method == 'ABC': result = self._ci_ABC()
+
+        return result
+
+    def _ci_basic(self):
+        """
+        Compute basic bootstrap / reverse percentile interval.
+
+        Returns
+        -------
+        result : tuple
+            basic bootstrap interval of a point estimator.
+        """
+
+        check_if_fitted(self)
+
+        if (self.B0 * self.alpha).is_integer():
+            k = int(self.B0 * self.alpha)
+            estimate_lo = 2 * self.original_estimate - self.replications[self.B0 - k - 1]
+            estimate_up = 2 * self.original_estimate - self.replications[k - 1]
+        else:
+            k = int((self.B0 + 1) * self.alpha)
+            estimate_lo = 2 * self.original_estimate - self.replications[self.B0 - k]
+            estimate_up = 2 * self.original_estimate - self.replications[k - 1]
+
+        result = (estimate_lo, estimate_up)
+        return result
+
+    def _ci_percentile(self):
+        """
+        Compute percentile interval.
+
+        Returns
+        -------
+        result : tuple
+            percentile interval of a point estimator.
+        """
+
+        check_if_fitted(self)
+
+        if (self.B0 * self.alpha).is_integer():
+            k = int(self.B0 * self.alpha)
+            estimate_lo = self.replications[k - 1]
+            estimate_up = self.replications[self.B0 - k - 1]
+        else:
+            k = int((self.B0 + 1) * self.alpha)
+            estimate_lo = self.replications[k - 1]
+            estimate_up = self.replications[self.B0 - k]
+
+        result = (estimate_lo, estimate_up)
+        return result
+
+    def _ci_studentized(self):
+        """
+        Compute studentized bootstrap / bootstrap-t confidence interval.
+
+        Returns
+        -------
+        result : tuple
+            studentized bootstrap confidence interval of a point estimator.
+        """
+
+        check_if_fitted(self)
+
+        check_if_ci_studentized_is_computable(self)
+
+        std = self.std()
+
+        if (self.B0 * self.alpha).is_integer():
+            k = int(self.B0 * self.alpha)
+            t_alpha = self.studentized_replications[k - 1]
+            t_1_alpha = self.studentized_replications[self.B0 - k - 1]
+        else:
+            k = int((self.B0 + 1) * self.alpha)
+            t_alpha = self.studentized_replications[k - 1]
+            t_1_alpha = self.studentized_replications[self.B0 - k]
+
+        estimate_lo = self.original_estimate - t_1_alpha * std
+        estimate_up = self.original_estimate - t_alpha * std
+
+        result = (estimate_lo, estimate_up)
         return result
 
 
@@ -216,8 +319,8 @@ class NonparametricBootstrap(Bootstrap):
 
             if self.B1 is not None:
                 boot = NonparametricBootstrap(*boot_samples, estimate_func = self.estimate_func, plugin_estimate_func = self.plugin_estimate_func,
-                                              B0 = self.B1, seed = self.seed)
-                boot.fit()
+                                              B0 = self.B1)
+                boot.fit(set_seed = False)
                 studentized_replication = (replication - self.original_estimate) / boot.std()
                 self.studentized_replications[index] = studentized_replication
 
@@ -225,107 +328,6 @@ class NonparametricBootstrap(Bootstrap):
 
         if self.B1 is not None:
             self.studentized_replications.sort()
-
-    def ci(self, method = 'basic'):
-        """
-        Computes the confidence interval of a point estimator.
-
-        Parameters
-        ----------
-        method : str, default = basic
-            'basic' for basic bootstrap / reverse percentile interval
-            'percentile' for percentile interval
-            'studentized' for studentized bootstrap interval
-        """
-
-        validate_bootstrap_ci_method(method)
-
-        if method == 'basic': result = self._ci_basic()
-        elif method == 'percentile': result = self._ci_percentile()
-        elif method == 'studentized': result = self._ci_studentized()
-        elif method == 'BCa': result = self._ci_BCa()
-        elif method == 'ABC': result = self._ci_ABC()
-
-        return result
-
-    def _ci_studentized(self):
-        """
-        Compute studentized bootstrap / bootstrap-t confidence interval.
-
-        Returns
-        -------
-        result : tuple
-            studentized bootstrap confidence interval of a point estimator.
-        """
-
-        check_if_fitted(self)
-
-        check_if_ci_studentized_is_computable(self)
-
-        std = self.std()
-
-        if (self.B0 * self.alpha).is_integer():
-            k = int(self.B0 * self.alpha)
-            t_alpha = self.studentized_replications[k - 1]
-            t_1_alpha = self.studentized_replications[self.B0 - k - 1]
-        else:
-            k = int((self.B0 + 1) * self.alpha)
-            t_alpha = self.studentized_replications[k - 1]
-            t_1_alpha = self.studentized_replications[self.B0 - k]
-
-        estimate_lo = self.original_estimate - t_1_alpha * std
-        estimate_up = self.original_estimate - t_alpha * std
-
-        result = (estimate_lo, estimate_up)
-        return result
-
-    def _ci_basic(self):
-        """
-        Compute basic bootstrap / reverse percentile interval.
-
-        Returns
-        -------
-        result : tuple
-            basic bootstrap interval of a point estimator.
-        """
-
-        check_if_fitted(self)
-
-        if (self.B0 * self.alpha).is_integer():
-            k = int(self.B0 * self.alpha)
-            estimate_lo = 2 * self.original_estimate - self.replications[self.B0 - k - 1]
-            estimate_up = 2 * self.original_estimate - self.replications[k - 1]
-        else:
-            k = int((self.B0 + 1) * self.alpha)
-            estimate_lo = 2 * self.original_estimate - self.replications[self.B0 - k]
-            estimate_up = 2 * self.original_estimate - self.replications[k - 1]
-
-        result = (estimate_lo, estimate_up)
-        return result
-
-    def _ci_percentile(self):
-        """
-        Compute percentile interval.
-
-        Returns
-        -------
-        result : tuple
-            percentile interval of a point estimator.
-        """
-
-        check_if_fitted(self)
-
-        if (self.B0 * self.alpha).is_integer():
-            k = int(self.B0 * self.alpha)
-            estimate_lo = self.replications[k - 1]
-            estimate_up = self.replications[self.B0 - k - 1]
-        else:
-            k = int((self.B0 + 1) * self.alpha)
-            estimate_lo = self.replications[k - 1]
-            estimate_up = self.replications[self.B0 - k]
-
-        result = (estimate_lo, estimate_up)
-        return result
 
     def _ci_BCa(self):
         pass
@@ -387,9 +389,9 @@ class ParametricBootstrap(Bootstrap):
     >>> pboot.ci()
     """
 
-    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B0 = 100, dists = None, seed = None):
-        Bootstrap.__init__(self, *samples, estimate_func = estimate_func,
-                         plugin_estimate_func = plugin_estimate_func, B0 = B0, seed = seed)
+    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B0 = 100, B1 = None, cl = 95, dists = None, seed = None):
+        Bootstrap.__init__(self, *samples, estimate_func = estimate_func, plugin_estimate_func = plugin_estimate_func,
+                           B0 = B0, B1 = B1, cl = cl, seed = seed)
         self.dists = dists # tuple of distribution names
         validate_parametric_bootstrap_input(self)
 
@@ -424,3 +426,33 @@ class ParametricBootstrap(Bootstrap):
             for sample, dist_object, dist_parameters_estimate in zip(self.samples, self.dist_objects, self.dist_parameters_estimates):
                 pbs.append(dist_object.rvs(*dist_parameters_estimate, size = sample.shape[0]))
             yield pbs
+
+    def replicate(self):
+        """
+        Compute bootstrap replications.
+
+        Returns
+        -------
+        None
+        """
+
+        self.replications = np.zeros(self.B0, dtype = float)
+
+        if self.B1 is not None:
+            self.studentized_replications = np.zeros(self.B0)
+
+        for index, boot_samples in enumerate(self.resamples()):
+            replication = self.estimate_func(*boot_samples)
+            self.replications[index] = replication
+
+            if self.B1 is not None:
+                boot = ParametricBootstrap(*boot_samples, estimate_func = self.estimate_func, plugin_estimate_func = self.plugin_estimate_func,
+                                              B0 = self.B1, dists = self.dists)
+                boot.fit(set_seed = False)
+                studentized_replication = (replication - self.original_estimate) / boot.std()
+                self.studentized_replications[index] = studentized_replication
+
+        self.replications.sort()
+
+        if self.B1 is not None:
+            self.studentized_replications.sort()
