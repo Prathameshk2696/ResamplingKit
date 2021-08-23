@@ -9,8 +9,11 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 from tabulate import tabulate
 from scipy import stats
+from scipy.stats import norm
 
 from .. import Resampler
+
+from ..jackknife import Jackknife
 
 from ..utils import (
     check_if_fitted,
@@ -25,35 +28,26 @@ from ..utils import (
 # TODO: add poisson and bag of little bootstraps.
 # TODO: add variance stabilization to studentized confidence interval.
 # TODO: add multithreading.
-# TODO: add verbosity.
+# TODO: add verbosity levels.
+# TODO: improved estimate of bias.
 
 class Bootstrap(Resampler, metaclass = ABCMeta):
     """ Base class for all bootstrap resamplers."""
 
-    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B0 = 100, B1 = None, cl = 90, seed = None):
+    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B0 = 100, B1 = None,
+                 cl = 90, std_error = None, seed = None, verbose = False):
+        if verbose:
+            print(f'Initializing object of class {self.__class__.__name__}.')
         self.samples = tuple([np.asarray(sample) for sample in samples])
         self.estimate_func = estimate_func
         self.plugin_estimate_func = plugin_estimate_func
         self.B0 = B0
         self.B1 = B1
         self.cl = cl
+        self.std_error = std_error
         self.seed = seed
         self.alpha = (1 - 0.01 * self.cl) / 2
-
-    def replicate(self):
-        """
-        Compute bootstrap replications.
-
-        Returns
-        -------
-        None
-        """
-
-        self.replications = np.zeros(self.B0, dtype = float)
-
-        for index, boot_samples in enumerate(self.resamples()):
-            self.replications[index] = self.estimate_func(*boot_samples)
-
+        self.verbose = verbose
 
     def fit(self, set_seed = True):
         """
@@ -66,7 +60,9 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
 
         if set_seed:
             np.random.seed(seed = self.seed)
+        if self.verbose: print('Computing estimate using sample.')
         self.original_estimate = self.estimate_func(*self.samples)
+        if self.verbose: print('Computing plugin estimate using sample.')
         self.plugin_estimate = self.original_estimate if self.plugin_estimate_func is None else self.plugin_estimate_func(*self.samples)
         self.replicate()
 
@@ -79,7 +75,9 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
             bias of a point estimator.
         """
 
+        if self.verbose: print(f'checking that the {self.__class__.__name__} instance is fitted.')
         check_if_fitted(self)
+        if self.verbose: print('estimating bias.')
         result = self.replications.mean() - self.plugin_estimate
         return result
 
@@ -92,7 +90,9 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
             variance of a point estimator.
         """
 
+        if self.verbose: print(f'checking that the {self.__class__.__name__} instance is fitted.')
         check_if_fitted(self)
+        if self.verbose: print('estimating variance.')
         result = (np.sum((self.replications - self.replications.mean()) ** 2)) / (self.B0 - 1)
         return result
 
@@ -105,11 +105,13 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
             standard error of a point estimator.
         """
 
+        if self.verbose: print(f'checking that the {self.__class__.__name__} instance is fitted.')
         check_if_fitted(self)
+        if self.verbose: print('estimating standard error.')
         result = ((np.sum((self.replications - self.replications.mean()) ** 2)) / (self.B0 - 1))**0.5
         return result
 
-    def ci(self, method = 'basic'):
+    def ci(self, method = 'basic', **kwargs):
         """
         Computes the confidence interval of a point estimator.
 
@@ -121,11 +123,13 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
             'studentized' for studentized bootstrap interval
         """
 
+        if self.verbose: print('validating method attribute.')
         validate_bootstrap_ci_method(method)
 
         if method == 'basic': result = self._ci_basic()
         elif method == 'percentile': result = self._ci_percentile()
         elif method == 'studentized': result = self._ci_studentized()
+        elif method == 'BC': result = self._ci_BCa(accelerated = False)
         elif method == 'BCa': result = self._ci_BCa()
         elif method == 'ABC': result = self._ci_ABC()
 
@@ -141,7 +145,12 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
             basic bootstrap interval of a point estimator.
         """
 
+        if self.verbose:
+            print()
+            print(f'checking that the {self.__class__.__name__} instance is fitted.')
         check_if_fitted(self)
+
+        if self.verbose: print('estimating basic bootstrap confidence interval.')
 
         if (self.B0 * self.alpha).is_integer():
             k = int(self.B0 * self.alpha)
@@ -165,7 +174,12 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
             percentile interval of a point estimator.
         """
 
+        if self.verbose:
+            print()
+            print(f'checking that the {self.__class__.__name__} instance is fitted.')
         check_if_fitted(self)
+
+        if self.verbose: print('estimating percentile bootstrap confidence interval.')
 
         if (self.B0 * self.alpha).is_integer():
             k = int(self.B0 * self.alpha)
@@ -179,7 +193,7 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
         result = (estimate_lo, estimate_up)
         return result
 
-    def _ci_studentized(self):
+    def _ci_studentized(self, std_error = None):
         """
         Compute studentized bootstrap / bootstrap-t confidence interval.
 
@@ -189,11 +203,16 @@ class Bootstrap(Resampler, metaclass = ABCMeta):
             studentized bootstrap confidence interval of a point estimator.
         """
 
+        if self.verbose:
+            print()
+            print(f'checking that the {self.__class__.__name__} instance is fitted.')
         check_if_fitted(self)
 
         check_if_ci_studentized_is_computable(self)
 
         std = self.std()
+
+        if self.verbose: print('estimating percentile bootstrap confidence interval.')
 
         if (self.B0 * self.alpha).is_integer():
             k = int(self.B0 * self.alpha)
@@ -263,7 +282,7 @@ class NonparametricBootstrap(Bootstrap):
     >>> npboot = NonparametricBootstrap(sample1, sample2, estimate_func = estimate_func,
     ...                                 plugin_estimate_func = None, B0 = 500, B1 = 25, cl = 95)
     >>> npboot.fit()
-    >>> npboot.bias()
+    >>> npboot.bias2()
     0.9071428571428513
     >>> npboot.var()
     641.7126688499196
@@ -277,9 +296,13 @@ class NonparametricBootstrap(Bootstrap):
     (-38.044815638023145, 104.89102845904694)
     """
 
-    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B0 = 100, B1 = None, cl = 95, seed = None):
-        Bootstrap.__init__(self, *samples, estimate_func = estimate_func, plugin_estimate_func = plugin_estimate_func,
-                           B0 = B0, B1 = B1, cl = cl, seed = seed)
+    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B0 = 100, B1 = None,
+                 cl = 95, std_error = None, seed = None, verbose = False):
+
+        Bootstrap.__init__(self, *samples, estimate_func = estimate_func, plugin_estimate_func = plugin_estimate_func, B0 = B0, B1 = B1,
+                           cl = cl, std_error = std_error, seed = seed, verbose = verbose)
+
+        if self.verbose: print('Validating inputs to NonparametricBootstrap.')
         validate_nonparametric_bootstrap_input(self)
 
     def resamples(self):
@@ -308,32 +331,77 @@ class NonparametricBootstrap(Bootstrap):
         None
         """
 
+        if self.verbose:
+            if self.B1 is None:
+                print('Computing bootstrap replications.')
+            else:
+                print('Computing bootstrap replications and studentized replications.')
         self.replications = np.zeros(self.B0, dtype = float)
 
-        if self.B1 is not None:
+        if (self.B1 is not None) or (self.std_error is not None): # studentized ci
             self.studentized_replications = np.zeros(self.B0)
 
         for index, boot_samples in enumerate(self.resamples()):
+            if self.verbose: print('Replication number :',index, end = '\r')
             replication = self.estimate_func(*boot_samples)
             self.replications[index] = replication
 
-            if self.B1 is not None:
+            if self.B1 is not None: # estimate standard error of bootstrap replication and compute studentized replications.
                 boot = NonparametricBootstrap(*boot_samples, estimate_func = self.estimate_func, plugin_estimate_func = self.plugin_estimate_func,
                                               B0 = self.B1)
                 boot.fit(set_seed = False)
-                studentized_replication = (replication - self.original_estimate) / boot.std()
-                self.studentized_replications[index] = studentized_replication
+                self.studentized_replications[index] = (replication - self.original_estimate) / boot.std()
+            elif self.std_error is not None: # compute studentized replications with standard error = 1
+                self.studentized_replications[index] = replication - self.original_estimate
 
         self.replications.sort()
 
-        if self.B1 is not None:
+        if (self.B1 is not None) or (self.std_error is not None):
             self.studentized_replications.sort()
 
-    def _ci_BCa(self):
-        pass
+    def _ci_BCa(self, accelerated = True):
+        q = (self.replications < self.plugin_estimate).sum() / self.B0
+        bc = norm.ppf(q=q)
+
+        if accelerated:
+            plugin_estimate_func = self.estimate_func if self.plugin_estimate_func is None else self.plugin_estimate_func
+            jack = Jackknife(sample = self.samples[0], estimate_func = plugin_estimate_func)
+            jack.fit()
+            jack_diff = jack.replications.mean() - jack.replications
+            a = np.sum(np.power(jack_diff, 3)) / (6 * np.power(np.sum(np.power(jack_diff, 2)), 1.5))
+        else:
+            a = 0
+
+        z_alpha = norm.ppf(self.alpha)
+        z_1_alpha = norm.ppf(1 - self.alpha) # change to -z_alpha
+        alpha_1 = norm.cdf(bc + ((bc + z_alpha)/(1 - a * (bc + z_alpha))))
+        alpha_2 = norm.cdf(bc + ((bc + z_1_alpha) / (1 - a * (bc + z_1_alpha))))
+
+        if (self.B0 * alpha_1).is_integer():
+            k = int(self.B0 * alpha_1)
+            estimate_lo = self.replications[k - 1]
+        else:
+            k = int((self.B0 + 1) * alpha_1)
+            estimate_lo = self.replications[k - 1]
+
+        if (self.B0 * alpha_2).is_integer():
+            k = int(self.B0 * alpha_2)
+            estimate_up = self.replications[k - 1]
+        else:
+            k = int((self.B0 + 1) * alpha_2)
+            estimate_up = self.replications[k - 1]
+
+        result = (estimate_lo, estimate_up)
+        return result
 
     def _ci_ABC(self):
         pass
+
+    def __str__(self):
+        accuracy_measures = ['Bias', 'Variance', 'Standard Error', 'Basic CI', 'Percentile CI', 'Studentized CI', 'BC CI', 'BCa CI']
+        values = [self.bias(), self.var(), self.std(), self.ci(method = 'basic'), self.ci(method = 'percentile'),
+                  self.ci(method = 'studentized'), self.ci(method = 'BC'), self.ci(method = 'BCa')]
+        return tabulate(zip(accuracy_measures, values), tablefmt='grid')
 
 
 class ParametricBootstrap(Bootstrap):
@@ -389,10 +457,12 @@ class ParametricBootstrap(Bootstrap):
     >>> pboot.ci()
     """
 
-    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B0 = 100, B1 = None, cl = 95, dists = None, seed = None):
+    def __init__(self, *samples, estimate_func = None, plugin_estimate_func = None, B0 = 100, B1 = None,
+                 std_error = None, cl = 95, dists = None, seed = None, verbose = False):
         Bootstrap.__init__(self, *samples, estimate_func = estimate_func, plugin_estimate_func = plugin_estimate_func,
-                           B0 = B0, B1 = B1, cl = cl, seed = seed)
+                           B0 = B0, B1 = B1, std_error = std_error, cl = cl, seed = seed, verbose = verbose)
         self.dists = dists # tuple of distribution names
+        if self.verbose: print('Validating inputs to ParametricBootstrap.')
         validate_parametric_bootstrap_input(self)
 
     def fit_dist(self):
@@ -438,7 +508,7 @@ class ParametricBootstrap(Bootstrap):
 
         self.replications = np.zeros(self.B0, dtype = float)
 
-        if self.B1 is not None:
+        if (self.B1 is not None) or (self.std_error is not None):
             self.studentized_replications = np.zeros(self.B0)
 
         for index, boot_samples in enumerate(self.resamples()):
@@ -449,10 +519,11 @@ class ParametricBootstrap(Bootstrap):
                 boot = ParametricBootstrap(*boot_samples, estimate_func = self.estimate_func, plugin_estimate_func = self.plugin_estimate_func,
                                               B0 = self.B1, dists = self.dists)
                 boot.fit(set_seed = False)
-                studentized_replication = (replication - self.original_estimate) / boot.std()
-                self.studentized_replications[index] = studentized_replication
+                self.studentized_replications[index] = (replication - self.original_estimate) / boot.std()
+            elif self.std_error is not None: # compute studentized replications with standard error = 1
+                self.studentized_replications[index] = replication - self.original_estimate
 
         self.replications.sort()
 
-        if self.B1 is not None:
+        if (self.B1 is not None) or (self.std_error is not None):
             self.studentized_replications.sort()
