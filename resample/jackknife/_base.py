@@ -9,11 +9,12 @@ from itertools import combinations
 import numpy as np
 from tabulate import tabulate
 
+from .. import Resampler
 from ..utils import check_if_fitted, validate_jackknife_input
 
 # TODO: add confidence interval and delete-d jackknife functionality.
 
-class Jackknife:
+class Jackknife(Resampler):
     """
     Leave-one-out jackknife resampling.
     Jackknife generates jackknife samples, computes jackknife replications and
@@ -130,11 +131,3 @@ class Jackknife:
     def ci(self):
         check_if_fitted(self)
         pass
-
-    def __str__(self):
-        accuracy_measures = ['Bias', 'Variance', 'Standard Error', 'Confidence Interval']
-        values = [self.bias(), self.var(), self.std(), self.ci()]
-        return tabulate(zip(accuracy_measures,values), tablefmt = 'grid')
-
-    def __repr__(self):
-        return 'Jackknife()'
