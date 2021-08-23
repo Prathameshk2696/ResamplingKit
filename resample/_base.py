@@ -37,10 +37,6 @@ class Resampler(metaclass = ABCMeta):
     def std(self):
         pass
 
-    @abstractmethod
-    def ci(self):
-        pass
-
     def __str__(self):
         accuracy_measures = ['Bias', 'Variance', 'Standard Error', 'Confidence Interval']
         values = [self.bias(), self.var(), self.std(), self.ci()]
