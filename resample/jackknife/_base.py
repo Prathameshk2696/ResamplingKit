@@ -55,7 +55,7 @@ class Jackknife:
         self.sample = np.asarray(sample)
         self.n = self.sample.shape[0]
         self.estimate_func = estimate_func
-        validate_jackknife_input(sample = self.sample, estimate_func = self.estimate_func)
+        validate_jackknife_input(self)
 
     def resamples(self):
         """
