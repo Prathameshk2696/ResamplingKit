@@ -85,6 +85,14 @@ def validate_bootstrap_input(boot):
         message = 'B1 must be of type either NoneType or int.'
         raise TypeError(message)
 
+    if not isinstance(boot.std_error, (type(None), int, float)):
+        message = 'std_error must be of type NoneType, int or float.'
+        raise TypeError(message)
+
+    if (boot.B1 is not None) and (boot.std_error is not None):
+        message = 'Either B1 or std_error must be None.'
+        raise ValueError(message)
+
     if not isinstance(boot.cl, (int, float)):
         message = 'cl must be of type either int or float.'
         raise TypeError(message)
@@ -138,10 +146,10 @@ def validate_bootstrap_ci_method(method):
     raises ValueError if method is neither of the following - basic, percentile, studentized, BCa, ABC.
     """
 
-    if method not in {'basic', 'percentile', 'studentized', 'BCa', 'ABC'}:
+    if method not in {'basic', 'percentile', 'studentized', 'BC', 'BCa', 'ABC'}:
         message = '''
         {} is an invalid method.
-        method must be one of the following - basic, percentile, studentized, BCa, ABC.
+        method must be one of the following - basic, percentile, studentized, BC, BCa, ABC.
         '''.format(method)
         raise ValueError(message)
 
@@ -151,9 +159,9 @@ def check_if_ci_studentized_is_computable(boot):
     raises NotComputableError if B1 is None.
     """
 
-    if boot.B1 is None:
+    if (boot.B1 is None) and (boot.std_error is None):
         message = '''
         Studentized confidence interval cannot be computed.
-        B1 must be of type int in order to compute studentized confidence interval.
+        Either B1 must be of type int or std_error must be of type int / float in order to compute studentized confidence interval.
         '''
         raise NotComputableError(message)
