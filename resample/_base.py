@@ -6,7 +6,6 @@ Resampling.
 
 from abc import ABCMeta, abstractmethod
 
-import numpy as np
 from tabulate import tabulate
 
 
@@ -15,27 +14,27 @@ class Resampler(metaclass = ABCMeta):
 
     @abstractmethod
     def resamples(self):
-        pass
+        """ Yield a resample. """
 
     @abstractmethod
     def replicate(self):
-        pass
+        """ Compute replications of an estimate. """
 
     @abstractmethod
     def fit(self):
-        pass
+        """ Compute point estimate using the given sample. Compute replications. """
 
     @abstractmethod
     def bias(self):
-        pass
+        """  Return the bias of a point estimator. """
 
     @abstractmethod
     def var(self):
-        pass
+        """  Return the variance of a point estimator. """
 
     @abstractmethod
     def std(self):
-        pass
+        """  Return the standard error of a point estimator. """
 
     def __str__(self):
         accuracy_measures = ['Bias', 'Variance', 'Standard Error', 'Confidence Interval']
