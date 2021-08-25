@@ -1,5 +1,11 @@
-from ._base import Jackknife
+"""
+resample.jackknife implements a variety of Jackknife resamplers.
+"""
+
+from ._base import DeleteDJackknife, SimpleBlockJackknife, MovingBlockJackknife
 
 __all__ = [
-    'Jackknife',
+    'DeleteDJackknife',
+    'SimpleBlockJackknife',
+    'MovingBlockJackknife',
 ]
